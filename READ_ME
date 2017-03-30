@@ -1,0 +1,68 @@
+datapump via: expdp system schemas=AMO,AMU directory=amchecks
+
+Not for a prd system but do this on test:
+
+create profile amcheck_profile limit PASSWORD_LIFE_TIME UNLIMITED;
+alter user amo profile amcheck_profile;
+alter user amu profile amcheck_profile;
+
+########################
+# Installation process #
+########################
+
+The shell scripts assume 'ksh' is '/bin/ksh'.
+
+Put everything in a new dedicated directory (with subdirectory 'external_tables') on a linux box. The scripts have some hard-coding for ~oracle/amchecks/ so you'll 
+need to do a little editing (change the value for AMCHECK_DIR) if you choose a different directory. I normally have this directory owned by OS user 'oracle' in 
+group 'oinstall'.
+
+If unzipping you may lose a symbolic link so do this manually:
+ln -s space_summary.sql space.sql
+
+Make an additional directory: /tmp/amchecks. If you want to use a different directory then you'll again need to edit some scripts (change the value of TEMP_DIR).
+
+Choose which local database is going to be used to manage your checks.
+You will need 2 users on this database - one to act as the schema owner and one to run the scripts. Details are in users.sql and am_schema.sql. 
+Be sure to CHANGE the password for both users in users.sql before you run it to create them. If you change the schema then you will need to edit
+some of the SQL statements in the ksh scripts to reflect this.
+Also, correct any references to your RMAN catalog. Run the following to see what needs to change:
+
+    grep -i change_this *
+    grep -i rman_tns_alias *
+
+If you're going to be e-mailing details you'll also need to ensure that the account you use for the amchecks can run /usr/sbin/sendmail.
+
+Be sure to edit AND CHANGE the .amcheck file to have your correct environment settings and the new passwords.
+
+Edit your cronfile to schedule automatic checks ONCE YOU HAVE TESTED ALL SCRIPTS interactively. You'll probably want to schedule a one-off via cron  to make sure that 
+you are happy before running it frequently.
+
+Create a new user 'amu' on ALL TARGET DATABASES (details are in users.sql).
+
+Note the use of the 2 'sidskip' files - these allow you to skip checks for particular databases if you're driving checks off a tnsnames.ora file.
+The format of this file is: each line must start with the tnsnames.ora entry, which is the unique identifier, followed by a few characters or a few words explaining
+why it is to be deliberately skipped (plus DBA initials?) separated by whitespace.
+
+Actually, keep the tnsnames.ora entries unique - i.e. don't have 2 different entries pointing to the exact same host and instance. This will cause a problem with the tablespace growth script (unless youa dd a 'distinct' as part  of the merge statement).
+
+You might want to use 'populate_database.ksh' once your have a local tnsnames.ora file to drive the checks.
+
+Be sure to keep all file permissions (and database permissions) to the absolute minimum. Maybe 'select any dictionary' is too much?#
+
+Note that I take absolutely no repsonsibility for these scripts or for any damage that they may produce!
+Be particularly careful when you have standby databases on your server - these scripts are not designed to run on standbys and could invalidate your oracle licenses. 
+
+Also, don't add new scripts that check things like (most of) the DBA_HIST views unless you are licensed for this (disgnostic + tuning?)
+on EVERY database!! This could cost you a fortune if you're not careful!!!
+
+If you failover or switchover be certain that you are not running scripts against your standby.
+
+The scripts have been written such that there is as small an install on monitored databases as possible. You'll probably want to create a new user with 'select any dictionary' privileges although you may be able to get by using an existing user or a user with fewer privileges. It should be easy to add in new checks via new sql scripts. If you do this try to keep those scripts that just check for errors as minimal as possible in terms of their output and rely on other scripts to show the full picture.
+
+The checks are designed to look for a 'dfspace' external table although they will work without one. If you want to create this on each target you can cron up 'space_check.ksh -r' to run once a day or more frequently ..once you've initially created the external table as outlined in am_schema.sql (you'll need this bit of the schema script to be run on the target databases).
+
+If you have any improvements or useful script additions please share and also let me know!
+
+Tony Webb
+March 2017
+

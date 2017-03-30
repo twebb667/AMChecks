@@ -1,0 +1,98 @@
+
+## Crontab entry for user oracle
+#
+40 01 * * 5 /u02/admin/DOUERMT1/scripts/rman_DOUERMT1_full.sh >/dev/null 2>&1
+40 01 * * 0-4,6 /u02/admin/DOUERMT1/scripts/rman_DOUERMT1_arch.sh >/dev/null 2>&1
+05 00 * * * find /u06/backup/rman/DOUERMT1/LOG -name 'rman_DOUERMT1_backup.log*' -mtime +30 -exec rm {} \;
+
+40 02 * * 5 /home/oracle/scripts/rman_backup.sh DOUDBAM1 0 3 >/dev/null 2>&1
+40 02 * * 0-4,6 /home/oracle/scripts/rman_backup.sh DOUDBAM1 1 3 >/dev/null 2>&1
+
+# Tidy up oracle logs:
+30 0 * * * ksh -c '/home/oracle/amchecks/purge_oracle_logs.ksh -a3 -t36000 1> /tmp/amchecks/purge.log  2>&1'
+#
+# Amchecks below here
+#
+##########################################################################################################################################################
+## Database Connectivity checks should list everything once a day and check for errors only every 15 minutes
+## Database check scripts - e.g. space, backups. Run these once in the morning, lunchtime and the evening with only error checks except the morning check
+##########################################################################################################################################################
+#
+# DF Section
+#
+##########################################################################################################################################################
+18        * * * *  ksh -c '/home/oracle/amchecks/os_space_check.ksh 1> /tmp/amchecks/os_space_check_last_output 2>&1'
+##########################################################################################################################################################
+
+########################
+# Non-Prd Section
+########################
+04,34 06-18 * * 1-5  ksh -c '/home/oracle/amchecks/is_oracle_ok.ksh -v -e -c -s -m -l non-prdisook -h "Non-Prod Connectivity Test" -S90 PRODUCTION_IND+N 1> /tmp/amchecks/nonprod_is_oracle_ok_last_output 2>/tmp/amchecks/nonprod_is_oracle_ok_last_error'
+24 08 * * 2,4  ksh -c '/home/oracle/amchecks/amchecks.ksh -c -m -x -t "CHECK" -h "Non-Prod Error Check" PRODUCTION_IND+N 1> /tmp/amchecks/nonprod_amchecks_nonprod_output 2>/tmp/amchecks/nonprod_amchecks_nonprod_error'
+
+########################
+# All Databases Section
+########################
+04,24,44        * * * *  ksh -c '/home/oracle/amchecks/non_oracle_space_check.ksh -s hatux1p1 -m -r180 1> /tmp/amchecks/non_oracle_space_output 2>/tmp/amchecks/non_oracle_space_error'
+
+22        05 * * *  ksh -c '/home/oracle/amchecks/reconcile.ksh -m 1> /tmp/amchecks/reconcile_output 2>/tmp/amchecks/reconcile_last_error'
+26        05 * * *  ksh -c '/home/oracle/amchecks/vmware_details_refresh.ksh -m -s 1> /tmp/amchecks/vmware_refresh 2>/tmp/amchecks/vmware_last_error'
+37        06 * * 1  ksh -c '/home/oracle/amchecks/amchecks.ksh -d doudbam1 -c -s cluster_summary.sql -H -h "VMWare Cluster Summary" -m 1> /tmp/amchecks/cluster_summary_last_output 2>/tmp/amchecks/cluster_summary_last_run'
+31        06 * * *  ksh -c '/home/oracle/amchecks/amchecks.ksh -d doudbam1 -c -s rman_catalog_summary.sql -H -h "RMAN Backup Summary" -m 1> /tmp/amchecks/rman_backup_last_output 2>/tmp/amchecks/rman_backup_last_run'
+35        06 * * 1  ksh -c '/home/oracle/amchecks/amchecks.ksh -d doprman1 -c -s rman_speed.sql -H -h "RMAN Backup Speeds" -m 1> /tmp/amchecks/rman_speed_last_output 2>/tmp/amchecks/rman_speed_last_run'
+29        06,11,16 * * *  ksh -c '/home/oracle/amchecks/is_oracle_ok.ksh -v -e -c -m 1> /tmp/amchecks/is_oracle_ok_last_output 2>/tmp/amchecks/is_oracle_ok_last_run'
+11 17 * * *  ksh -c '/home/oracle/amchecks/total_space_check.ksh -m 1> /tmp/amchecks/total_space_check_output 2>/tmp/amchecks/total_space_check_error'
+31 17 * * *  ksh -c '/home/oracle/amchecks/tablespace_space_check.ksh -m 1> /tmp/amchecks/tablespace_space_check_output 2>/tmp/amchecks/tablespace_space_check_error'
+# Tony 190616 11 17 * * 1  ksh -c '/home/oracle/amchecks/total_space_check.ksh -m 1> /tmp/amchecks/total_space_check_output 2>/tmp/amchecks/total_space_check_error'
+# Tony 190616 31 17 * * 1  ksh -c '/home/oracle/amchecks/tablespace_space_check.ksh -m 1> /tmp/amchecks/tablespace_space_check_output 2>/tmp/amchecks/tablespace_space_check_error'
+00 05 * * *  ksh -c '/home/oracle/amchecks/amchecks.ksh -c -m 1> /tmp/amchecks/amchecks_last_output 2>/tmp/amchecks/amchecks_last_error'
+53        06,09,12,15 * * 1-5  ksh -c '/home/oracle/amchecks/all_os_space_check.ksh -R -S -m 1> /tmp/amchecks/all_os_space_check_output 2>/tmp/amchecks/all_os_space_check_last_run'
+58       09,12,15 * * 1-5 ksh -c '/home/oracle/amchecks/all_os_space_check.ksh -v -p -r -S -m -t "Prod OS Space Alerts" PRODUCTION_IND+Y 1> /tmp/amchecks/all_os_space_check_output 2>/tmp/amchecks/all_os_space_check_last_run'
+58       06       * * 1-5 ksh -c '/home/oracle/amchecks/all_os_space_check.ksh -v -p -S -m 1> /tmp/amchecks/all_os_space_check_output 2>/tmp/amchecks/all_os_space_check_last_run'
+53        06 * * 0,6  ksh -c '/home/oracle/amchecks/all_os_space_check.ksh -v -p -S -m 1> /tmp/amchecks/all_os_space_check_output 2>/tmp/amchecks/all_os_space_check_last_run'
+
+#####################
+# Production Section
+#####################
+#55 10 * * *  ksh -c '/home/oracle/amchecks/tonymailtest.ksh'
+
+02,32 * * * 0,6  ksh -c '/home/oracle/amchecks/is_oracle_ok.ksh -v -e -c -s -m -l prdisook -h "Production Connectivity Test" -S90 PRODUCTION_IND+Y 1> /tmp/amchecks/prod_is_oracle_ok_last_output 2>/tmp/amchecks/prod_is_oracle_ok_last_error'
+02,07,12,17,22,27,32,37,42,47,52,57 * * * 1-5  ksh -c '/home/oracle/amchecks/is_oracle_ok.ksh -v -e -c -s -m -l prdisook -h "Production Connectivity Test" -S15 PRODUCTION_IND+Y 1> /tmp/amchecks/prod_is_oracle_ok_last_output 2>/tmp/amchecks/prod_is_oracle_ok_last_error'
+04 6,16 * * *  ksh -c '/home/oracle/amchecks/amchecks.ksh -c -m -x -t "CHECK" -h "URGENT Production Error Check" PRODUCTION_IND+Y 1> /tmp/amchecks/amchecks_last_output 2>/tmp/amchecks/amchecks_last_error'
+00 07 * * 1  ksh -c '/home/oracle/amchecks/amchecks.ksh -c -m -h "Production Error Check" PRODUCTION_IND+Y 1> /tmp/amchecks/amchecks_last_output 2>/tmp/amchecks/amchecks_last_error'
+
+#################################################
+# R12 - 5 min checks plus forced 1nce per weekday
+#################################################
+09,19,29,39,49,59 07,08,09,10,11,12,13,14,15,16,17,18 * * 1-5  ksh -c '/home/oracle/amchecks/r12_checks.ksh -F -a "fred.flintstone@bedrock.com" R12PROD > /tmp/amchecks/r12_checks_last_output 2>/tmp/amchecks/r12_checks_last_error'
+57 06 * * 1-5  ksh -c '/home/oracle/amchecks/r12_checks.ksh -a "wilma.flintstone@bedrock.com" -f R12PROD > /tmp/amchecks/r12_checks_last_output 2>/tmp/amchecks/r12_checks_last_error'
+
+##################
+# Progress checks
+##################
+33        06 * * *  ksh -c '/home/oracle/amchecks/is_progress_ok.ksh -m -v 1> /tmp/amchecks/is_prog_ok_last_output 2>/tmp/amchecks/is_prog_ok_last_run'
+
+04,09,14,19,24,29,34,39,44,49,54,59 00-07 * * *  ksh -c '/home/oracle/amchecks/is_progress_ok.ksh -m -S -r60 PRODUCTION_IND+Y 1> /tmp/amchecks/is_prog_ok_last_output 2>/tmp/amchecks/is_prog_ok_last_error'
+04,09,14,19,24,29,34,39,44,49,54,59 18-23 * * *  ksh -c '/home/oracle/amchecks/is_progress_ok.ksh -m -S -r60 PRODUCTION_IND+Y 1> /tmp/amchecks/is_prog_ok_last_output 2>/tmp/amchecks/is_prog_ok_last_error'
+01,06,11,16,21,26,31,36,41,46,51,56 00-07 * * *  ksh -c '/home/oracle/amchecks/is_progress_ok.ksh -a "betty.rubble@bedrock.com" -S -r60 PRODUCTION_IND+Y  1> /tmp/amchecks/is_prog_ok_last_output 2>/tmp/amchecks/is_prog_ok_last_error'
+01,06,11,16,21,26,31,36,41,46,51,56 18-23 * * *  ksh -c '/home/oracle/amchecks/is_progress_ok.ksh -a "betty.rubble@bedrock.com" -S -r60 PRODUCTION_IND+Y  1> /tmp/amchecks/is_prog_ok_last_output 2>/tmp/amchecks/is_prog_ok_last_error'
+
+04,09,14,19,24,29,34,39,44,49,54,59 08-17 * * *  ksh -c '/home/oracle/amchecks/is_progress_ok.ksh -m -S -r60 1> /tmp/amchecks/is_prog_ok_last_output 2>/tmp/amchecks/is_prog_ok_last_error'
+01,06,11,16,21,26,31,36,41,46,51,56 08-17 * * *  ksh -c '/home/oracle/amchecks/is_progress_ok.ksh -a "barney.rubble@bedrock.com" -S -r60 1> /tmp/amchecks/is_prog_ok_last_output 2>/tmp/amchecks/is_prog_ok_last_error'
+
+
+####################
+# SQL Server checks
+####################
+32        06 * * *  ksh -c '/home/oracle/amchecks/is_sss_ok.ksh -M 1> /tmp/amchecks/is_sss_ok_last_output 2>/tmp/amchecks/is_sss_ok_last_run'
+03,08,13,18,23,28,33,38,43,48,53,58 * * * *  ksh -c '/home/oracle/amchecks/is_sss_ok.ksh -S 1> /tmp/amchecks/is_sss_ok_last_output 2>/tmp/amchecks/is_sss_ok_last_error'
+
+####################################
+# Comments only below here please..
+####################################
+#
+## Add in space checks for specific databases (deliberately not automated for all databases)
+#
+#
+10,40 * * * * find /u01/app/oracle/diag/clients/user_oracle/host_1806354927_80/trace  -name 'ora*.tr*' -mtime +1 -exec rm -f {} \;
+
